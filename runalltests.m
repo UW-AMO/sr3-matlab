@@ -1,4 +1,4 @@
 %% Running all tests
 
-result = runtests('test/testqrmex');
+result = runtests(pwd,'IncludeSubfolders',true);
 table(result)
