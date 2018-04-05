@@ -45,7 +45,7 @@ lam0 = 0.002; % good for l_0 regularizer
 
 % apply solver
 [x0, w0] = rrlsq(A, b, 'mode', '0', 'lam',lam0,'ptf',0);
-[x1, w1] = rrlsq(A, b, 'mode', '1', 'lam',lam1,'ptf',0); 
+[x1, w1] = rrlsq(A, b, 'mode', '1', 'lam',lam1,'ptf',0);
 
 % built-ins
 xl2 = A\b;

@@ -140,8 +140,8 @@ normb = norm(b,2);
 while err >= tol
     % xstep
     if ifusenormal
-        u = atb(s) + kap*w(s);
-        x(s) = atacholfac\(atacholfac.'\u);
+        u = atb + kap*(D.'*w);
+        x(s) = atacholfac\(atacholfac.'\u(s));
     else
         u = xormqr_m('L','T',AOUT,tau,[b;rootkap*w]); % apply q* from qr 
         x(jpvt(1:n)) = linsolve(AOUT,u,opts); % solve rx = u
