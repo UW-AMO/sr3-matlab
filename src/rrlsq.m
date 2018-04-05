@@ -20,6 +20,10 @@ function [x, w] = rrlsq(A,b,varargin)
 %   'lam'       hyper-parameter, control strength of rho (default 1.0)
 %   'kap'       hyper-parameter, control strength of the quadratic penalty
 %               (default 1.0)
+%   'ifusenormal' use the normal equations and Cholesky factorization
+%                 rather than a QR decomposition for internal least 
+%                 squares solves (this has advantages for large, sparse
+%                 problems)
 %   'itm'       maximum number of iterations (default 100)
 %   'tol'       terminate if change in w (in l2 norm) is less than tol
 %               (default 1e-6)
