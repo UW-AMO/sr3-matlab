@@ -16,7 +16,7 @@ addpath([pwd,'/bin']);
 
 % compile mex binaries
 
-if ((~exist('xgeqp3_m','file') && ~exist('xormqr_m','file')) ...
+if (~exist('xgeqp3_m','file') || ~exist('xormqr_m','file') ...
         || (exist('recompile','var') && recompile))
     if (strcmp(systemType,'default'))
 
@@ -24,8 +24,12 @@ if ((~exist('xgeqp3_m','file') && ~exist('xormqr_m','file')) ...
         
         fortheaderdir = fullfile(matlabroot,'extern','examples','refbook');
         fortfile = fullfile(matlabroot,'extern','examples','refbook','fort.c');
-
-        mex('-output','bin/xgeqp3_m','-v','-largeArrayDims',['-I' fortheaderdir],'src/xgeqp3_m.c',fortfile,'-lmwlapack')
-        mex('-output','bin/xormqr_m','-v','-largeArrayDims',['-I' fortheaderdir],'src/xormqr_m.c',fortfile,'-lmwlapack')
+        
+        if (~exist('xgeqp3_m','file') || recompile)
+            mex('-output','bin/xgeqp3_m','-v','-largeArrayDims',['-I' fortheaderdir],'src/xgeqp3_m.c',fortfile,'-lmwlapack')
+        end
+        if (~exist('xormqr_m','file') || recompile)
+            mex('-output','bin/xormqr_m','-v','-largeArrayDims',['-I' fortheaderdir],'src/xormqr_m.c',fortfile,'-lmwlapack')
+        end
     end
 end
