@@ -58,18 +58,11 @@ function [x, w] = rrlsq(A,b,varargin)
 % Copyright 2018 Travis Askham and Peng Zheng
 % Available under the terms of the MIT License
 
-l0rho = @(x) nnz(x);
-l0rhoprox = @(x,alpha) wthresh(x,'h',sqrt(2*alpha));
-l1rho = @(x) sum(abs(x));
-l1rhoprox = @(x,alpha) wthresh(x,'s',alpha);
-l2rho = @(x) 0.5*sum(abs(x).^2);
-l2rhoprox = @(x,alpha) x/(1.0+alpha);
-
 %% parse inputs
 
 [m,n] = size(A);
 
-p = rrlsq_parse_input(A,b,m,n,varargin{:});
+[p,rho,rhoprox] = rrlsq_parse_input(A,b,m,n,varargin{:});
 
 x = p.Results.x0;
 w = p.Results.w0;
@@ -79,33 +72,11 @@ kap = p.Results.kap;
 itm = p.Results.itm;
 tol = p.Results.tol;
 ptf = p.Results.ptf;
-mode = p.Results.mode;
-l0w = p.Results.l0w;
-l1w = p.Results.l1w;
-l2w = p.Results.l2w;
 ifusenormal = p.Results.ifusenormal;
 
 [md,~] = size(D);
 if md ~= n
     w = zeros(md,1);
-end
-
-if strcmp(mode,'0')
-    rho = l0rho;
-    rhoprox = l0rhoprox;
-elseif strcmp(mode,'1')
-    rho = l1rho;
-    rhoprox = l1rhoprox;
-elseif strcmp(mode,'2')
-    rho = l2rho;
-    rhoprox = l2rhoprox;
-elseif strcmp(mode,'mixed')
-    
-elseif strcmp(mode,'other')
-    rho = p.Results.rho;
-    rhoprox = p.Results.rhoprox;
-else
-    error('incorrect value for mode')
 end
             
 %% pre-process data
@@ -170,7 +141,7 @@ end
 
 end
 
-function p = rrlsq_parse_input(A,b,m,n,varargin)
+function [p,rho,rhoprox] = rrlsq_parse_input(A,b,m,n,varargin)
 %RRLSQ_PARSE_INPUT parse the input to RRLSQ
 % Sets default values and checks types (within reason)
 % See also RRLSQ for details
@@ -223,4 +194,20 @@ function p = rrlsq_parse_input(A,b,m,n,varargin)
     addParameter(p,'ifusenormal',defaultifusenormal,@isnumeric);
 
     parse(p,A,b,varargin{:});
+    
+
+    if strcmp(p.Results.mode,'0') || strcmp(p.Results.mode,'1') ...
+            || strcmp(p.Results.mode,'2')
+        rho = @(x) l012rhoprox(x,1,p.Results.mode,0);
+        rhoprox = @(x,alpha) l012rhoprox(x,alpha,p.Results.mode,1);
+    elseif strcmp(mode,'mixed')
+        % not implemented
+    elseif strcmp(mode,'other')
+        rho = p.Results.rho;
+        rhoprox = p.Results.rhoprox;
+    else
+        error('incorrect value for mode')
+    end
+
+    
 end
