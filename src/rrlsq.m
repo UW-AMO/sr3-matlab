@@ -96,7 +96,7 @@ if ifusenormal
    end
    atb = A.'*b;
 else
-    [AOUT,jpvt,tau] = xgeqp3_m([full(A);rootkap*full(D)]); % qr decomposition
+    [Q,R,p] = qr([full(A);rootkap*full(D)],0);
     opts.UT = true;
 end
 
@@ -114,8 +114,8 @@ while err >= tol
         u = atb + kap*(D.'*w);
         x(s) = atacholfac\(atacholfac.'\u(s));
     else
-        u = xormqr_m('L','T',AOUT,tau,[b;rootkap*w]); % apply q* from qr 
-        x(jpvt(1:n)) = linsolve(AOUT,u,opts); % solve rx = u
+        u = Q'*[b;rootkap*w]; % apply q* from qr 
+        x(p) = linsolve(R,u,opts); % solve rx = u
     end
     
     % store D*x

@@ -61,15 +61,15 @@ b = A*y+sigma*randn(m,1);
 
 % set up parameters of fit
 lam1 = 0.01; % good for l_1 regularizer
-lam0 = 0.002; % good for l_0 regularizer
+lam0 = 0.004; % good for l_0 regularizer
 
 % apply solver
-[x0, w0] = rrlsq(A, b, 'mode', '0', 'lam',lam0,'ptf',0);
-[x1, w1] = rrlsq(A, b, 'lam',lam1,'ptf',0);
+tic; [x0, w0] = rrlsq(A, b, 'mode', '0', 'lam',lam0,'ptf',10);toc
+[x1, w1] = rrlsq(A, b, 'lam',lam1,'ptf',10);
 
 % built-ins
 xl2 = A\b;
-if exist('lasso')
+if exist('lasso','builtin')
     xl1 = lasso(A,b,'Lambda',lam1);
 end
 
@@ -80,7 +80,7 @@ figure(); hold on;
 plot(y, '-*b'); plot(x0, '-xr'); plot(w0, '-og'); plot(x1, '-xc');
 plot(w1, '-om'); scatter(1:length(xl2),xl2,'ok', ...
     'MarkerFaceAlpha',0.25,'MarkerEdgeAlpha',0.25);
-if exist('lasso')
+if exist('lasso','builtin')
     plot(xl1,'-ok'); 
     legend('true signal', 'x0', 'w0', 'x1', 'w1','backslash','lasso');
 else
@@ -148,6 +148,8 @@ plot(y1_2,'--m')
 legend('true signal', 'l0', 'l1 v1', 'l1 v2');    
 
 % set up signal as piecewise linear (Chartrand example)
+% note that here the regularization is on the second derivative
+% also, the l0 regularization is sensitive to lambda
 
 n = 100;
 
@@ -156,17 +158,21 @@ tmid = (t(2:end)+t(1:end-1))/2.0;
 h = t(2)-t(1);
 y = abs(t-0.5);
 
+b = y + sigma*randn(n,1);
+
+bstart = b(1);
+b = b-bstart;
+
 sigma = 0.05;
 
-A = [ones(n,1),tril(ones(n,n-1),-1)*h];
+A = tril(ones(n,n-1),-1)*h;
 e = ones(n,1);
-D = spdiags([-e,e],[1,2],n-2,n)/h;
-b = (y + sigma*randn(n,1));
+D = spdiags([-e,e],[0,1],n-2,n-1)/h;
 
-lam0 = 0.0037;
-lam1 = 0.0007;
+lam0 = 0.007;
+lam1 = 0.02;
 
-xi = [mean(b);diff(b)/h];
+xi = diff(b)/h;
 wi = D*xi;
 
 kappa0 = 1.0*h;
@@ -182,21 +188,26 @@ kappa1 = 1.0*h;
 % reconstruct from w
 
 cs = cumsum([0;w0])*h;
-sx0 = cs + (sum(x0(2:end))-sum(cs))/length(cs);
-y0 = A*[x0(1);sx0];
+sw0 = cs + (sum(x0)-sum(cs))/length(cs);
+sw0int = A*sw0;
+coeffs = [sw0int,ones(n,1)]\(b+bstart);
+y0 = coeffs(1)*sw0int + coeffs(2)*ones(n,1);
 cs = cumsum([0;w1])*h;
-sx1 = cs + (sum(x1(2:end))-sum(cs))/length(cs);
-y1 = A*[x1(1);sx1];
+sw1 = cs + (sum(x1)-sum(cs))/length(cs);
+sw1int = A*sx1;
+coeffs = [sw1int,ones(n,1)]\(b+bstart);
+y1 = coeffs(1)*sw1int + coeffs(2)*ones(n,1);
 
 close all
 
 figure()
-plot(y,'b')
+plot(t,y,'b')
 hold on
-plot(y0,'--r')
-plot(y1,'--g')
+plot(t,b+bstart,'--','color',[0,0,0]+0.75);
+plot(t,y0,'--r')
+plot(t,y1,'--g')
 
-legend('true signal', 'l0', 'l1');
+legend('true signal','corrupted', 'l0', 'l1');
 
 figure()
 plot(tmid,diff(y),'-xb')
