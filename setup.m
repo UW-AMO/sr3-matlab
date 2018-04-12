@@ -33,3 +33,5 @@ if (~exist('xgeqp3_m','file') || ~exist('xormqr_m','file') ...
         end
     end
 end
+
+clear systemType

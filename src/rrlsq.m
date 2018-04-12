@@ -178,7 +178,7 @@ function [p,rho,rhoprox] = rrlsq_parse_input(A,b,m,n,varargin)
     addRequired(p,'A',isdouble);
     addRequired(p,'b',isdoublem);
     addParameter(p,'x0',defaultx0,isdoublen);
-    addParameter(p,'w0',defaultw0,isdoublen);
+    addParameter(p,'w0',defaultw0,isdouble);
     addParameter(p,'D',defaultD,isdouble);
     addParameter(p,'lam',defaultlam,isdoublep);
     addParameter(p,'kap',defaultkap,isdoublep);

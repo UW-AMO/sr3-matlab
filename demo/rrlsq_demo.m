@@ -28,9 +28,13 @@
 % the more complicated penalty $\rho(Dx)$.
 
 % initialize
+
 clear; clf; close all;
 iseed = 8675309;
 rng(iseed);
+set(groot, 'defaultLineMarkerSize',10)
+set(groot, 'defaultLineLineWidth',2)
+
 
 %% Problem 1: $\ell_1$ vs $\ell_0$ penalties
 %
@@ -83,3 +87,120 @@ else
     legend('true signal', 'x0', 'w0', 'x1', 'w1','backslash');    
 end
 
+clear;
+
+%% Problem 2: regularized derivatives
+% In this problem, we take random projections of a smooth signal
+% and attempt a reconstruction under a piecewise smoothness promoting
+% regularization. Specifically, we assume $x$ to be a piecewise smooth
+% 1D signal (though the measurements are possibly corrupted by noise). 
+% We consider both $x$ given by a hat function and $x$ given by a 
+% piecewise constant function. We then let $A$ be an $m \times n$ random 
+% measurement matrix, with $m < n$. We set up $D$ to be the $n-1\times n$
+% matrix mapping the signal to a finite difference approximation of the 
+% derivative. We then reconstruct the signal as the cumulative sum of 
+% $w$, adjusting for the integration constant.
+
+
+iseed = 8675309;
+rng(iseed);
+
+n = 500;
+m = 100;
+sigma = 0.1;
+A = randn(m,n);
+
+% set up signal as step function (sparse derivative assumption)
+
+y = zeros(n,1);
+for i = 1:5
+	y((i-1)*100+1:i*100) = i;
+end
+
+b = A*y + sigma*randn(m,1);
+
+e = ones(n,1);
+D = spdiags([-e,e],[0,1],n-1,n); % difference matrix
+
+lam0 = 0.01;
+lam1 = 0.02;
+lam1_2 = 0.002;
+
+% apply solver
+[x0, w0] = rrlsq(A, b, 'mode', '0', 'lam',lam0,'ptf',0,'D',D);
+[x1, w1] = rrlsq(A, b, 'mode', '1', 'lam',lam1,'ptf',0,'D',D);
+[x1_2, w1_2] = rrlsq(A, b, 'mode', '1', 'lam',lam1_2,'ptf',0,'D',D);
+
+cs = cumsum([0;w0]);
+y0 = cs + (sum(x0)-sum(cs))/n;
+cs = cumsum([0;w1]);
+y1 = cs + (sum(x1)-sum(cs))/n;
+cs = cumsum([0;w1_2]);
+y1_2 = cs + (sum(x1_2)-sum(cs))/n;
+
+figure()
+plot(y,'b')
+hold on
+plot(y0,'--r')
+plot(y1,'--g')
+plot(y1_2,'--m')
+
+legend('true signal', 'l0', 'l1 v1', 'l1 v2');    
+
+% set up signal as piecewise linear (Chartrand example)
+
+n = 100;
+
+t = linspace(0,1,n).';
+tmid = (t(2:end)+t(1:end-1))/2.0;
+h = t(2)-t(1);
+y = abs(t-0.5);
+
+sigma = 0.05;
+
+A = [ones(n,1),tril(ones(n,n-1),-1)*h];
+e = ones(n,1);
+D = spdiags([-e,e],[1,2],n-2,n)/h;
+b = (y + sigma*randn(n,1));
+
+lam0 = 0.0037;
+lam1 = 0.0007;
+
+xi = [mean(b);diff(b)/h];
+wi = D*xi;
+
+kappa0 = 1.0*h;
+kappa1 = 1.0*h;
+
+% apply solver
+[x0, w0] = rrlsq(A, b, 'mode', '0', 'lam',lam0,'itm',10000,'ptf',0,...
+    'D',D,'x0',xi,'w0',wi,'kap',kappa0);
+[x1, w1] = rrlsq(A, b, 'mode', '1', 'lam',lam1,'itm',10000,'ptf',0,...
+    'D',D,'x0',xi,'w0',wi,'kap',kappa1);
+
+
+% reconstruct from w
+
+cs = cumsum([0;w0])*h;
+sx0 = cs + (sum(x0(2:end))-sum(cs))/length(cs);
+y0 = A*[x0(1);sx0];
+cs = cumsum([0;w1])*h;
+sx1 = cs + (sum(x1(2:end))-sum(cs))/length(cs);
+y1 = A*[x1(1);sx1];
+
+close all
+
+figure()
+plot(y,'b')
+hold on
+plot(y0,'--r')
+plot(y1,'--g')
+
+legend('true signal', 'l0', 'l1');
+
+figure()
+plot(tmid,diff(y),'-xb')
+hold on
+plot(tmid,diff(y0),'-xr')
+plot(tmid,diff(y1),'-xg')
+legend('true derivative', 'l0', 'l1');
