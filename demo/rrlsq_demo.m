@@ -64,8 +64,8 @@ lam1 = 0.01; % good for l_1 regularizer
 lam0 = 0.004; % good for l_0 regularizer
 
 % apply solver
-tic; [x0, w0] = rrlsq(A, b, 'mode', '0', 'lam',lam0,'ptf',10);toc
-[x1, w1] = rrlsq(A, b, 'lam',lam1,'ptf',10);
+[x0, w0] = rrlsq(A, b, 'mode', '0', 'lam',lam0,'ptf',0);
+[x1, w1] = rrlsq(A, b, 'lam',lam1,'ptf',0);
 
 % built-ins
 xl2 = A\b;
@@ -149,7 +149,7 @@ legend('true signal', 'l0', 'l1 v1', 'l1 v2');
 
 % set up signal as piecewise linear (Chartrand example)
 % note that here the regularization is on the second derivative
-% also, the l0 regularization is sensitive to lambda
+% also, the regularization is sensitive to lambda
 
 n = 100;
 
@@ -170,7 +170,7 @@ e = ones(n,1);
 D = spdiags([-e,e],[0,1],n-2,n-1)/h;
 
 lam0 = 0.007;
-lam1 = 0.02;
+lam1 = 0.001;
 
 xi = diff(b)/h;
 wi = D*xi;
@@ -194,11 +194,9 @@ coeffs = [sw0int,ones(n,1)]\(b+bstart);
 y0 = coeffs(1)*sw0int + coeffs(2)*ones(n,1);
 cs = cumsum([0;w1])*h;
 sw1 = cs + (sum(x1)-sum(cs))/length(cs);
-sw1int = A*sx1;
+sw1int = A*sw1;
 coeffs = [sw1int,ones(n,1)]\(b+bstart);
 y1 = coeffs(1)*sw1int + coeffs(2)*ones(n,1);
-
-close all
 
 figure()
 plot(t,y,'b')

@@ -4,10 +4,15 @@ function z = l012rhoprox(x,alpha,mode,ifprox)
 % this function returns either the value of the penalty or 
 % the solution of the prox problem (if ifprox):
 %
-% argmin_z alpha* \|z\|_p + 0.5*\|x-z\|)2^2
+% argmin_z alpha* 1/p \|z\|_p^p + 0.5*\|x-z\|_2^2
 %
-% where p is one of 0, 1, 2. If ~ifprox, then \|x\|_p is
-% returned where p is 0, 1, 2 according to mode. 
+% if p is one of 1 or 2. If p = 0, then
+%
+% argmin_z alpha*nnz(z) + 0.5*\|x-z\|_2^2
+%
+% If ~ifprox, then 1/p \|x\|_p^p is
+% returned if p = 1 or 2 or nnz(x) is 
+% returned if p = 0, according to mode. 
 %
 % input:
 %   x - vector, as above
