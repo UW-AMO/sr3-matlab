@@ -48,7 +48,7 @@ function [x,w,stats] = sr3_deconvtv(cmat,img,varargin)
 %   >> lam = A.'*b;
 %   >> [x,w] = rrlsq(A,b,'lam',lam);
 %
-% See also RRLSQ_PARAMS, LASSO, LINSOLVE
+% See also LASSO, LINSOLVE
 
 % Copyright 2018 Travis Askham and Peng Zheng
 % Available under the terms of the MIT License
@@ -161,7 +161,7 @@ function [p,rho,rhoprox] = sr3_deconvtv_parse_input(varargin)
     defaultmodereg = '1';
     defaultifnokap = 1;
     defaultl0w = 0.0;
-    defaultl1w = 1.0;
+    defaultl1w = 0.0;
     defaultl2w = 0.0;
     
     p = inputParser;
@@ -195,9 +195,14 @@ function [p,rho,rhoprox] = sr3_deconvtv_parse_input(varargin)
     else
         l0w = p.Results.l0w; l1w = p.Results.l1w; l2w = p.Results.l2w;
     end
-
+    
+    
     if strcmp(p.Results.modereg,'0') || strcmp(p.Results.modereg,'1') ...
             || strcmp(p.Results.modereg,'2') || strcmp(modereg,'mixed')
+        if (abs(l0w) == 0 && abs(l1w) == 0 && abs(l2w) == 0)
+            warning(['all weights in mixed norm are zero', ...
+                '\n prox operation does nothing'])
+        end
         rho = @(x) l012vecrhoprox(x,1,l0w,l1w,l2w,0,2);
         rhoprox = @(x,alpha) l012vecrhoprox(x,alpha,l0w,l1w,l2w,1,2);
     else

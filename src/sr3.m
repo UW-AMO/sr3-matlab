@@ -36,7 +36,7 @@ function [x, w] = sr3(A,b,varargin)
 %               'other': rho and rhoprox must be provided
 %               (default '1')
 %   'l0w'       weight of l0 norm for 'mixed' mode (default 0.0)
-%   'l1w'       weight of l1 norm for 'mixed' mode (default 1.0)
+%   'l1w'       weight of l1 norm for 'mixed' mode (default 0.0)
 %   'l2w'       weight of l2 norm for 'mixed' mode (default 0.0)
 %   'rho'       function evaluating regularizer rho
 %   'rhoprox'   proximal function which, for any alpha, evaluates 
@@ -167,7 +167,7 @@ function [p,rho,rhoprox] = sr3_parse_input(A,b,m,n,varargin)
     defaultptf = 0;
     defaultmode = '1';
     defaultl0w = 0.0;
-    defaultl1w = 1.0;
+    defaultl1w = 0.0;
     defaultl2w = 0.0;
     defaultrho = l1rho;
     defaultrhoprox = l1rhoprox;
@@ -218,6 +218,10 @@ function [p,rho,rhoprox] = sr3_parse_input(A,b,m,n,varargin)
 
     if strcmp(p.Results.mode,'0') || strcmp(p.Results.mode,'1') ...
             || strcmp(p.Results.mode,'2') || strcmp(mode,'mixed')
+        if (abs(l0w) == 0 && abs(l1w) == 0 && abs(l2w) == 0)
+            warning(['all weights in mixed norm are zero', ...
+                '\n prox operation does nothing'])
+        end
         rho = @(x) l012rhoprox(x,1,l0w,l1w,l2w,0);
         rhoprox = @(x,alpha) l012rhoprox(x,alpha,l0w,l1w,l2w,1);
     elseif strcmp(mode,'other')
