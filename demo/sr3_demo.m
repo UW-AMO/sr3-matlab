@@ -1,9 +1,9 @@
-%% Relaxed regularized least squares RRLSQ demo
+%% Sparse Relaxed Regularized Regression (SR3) demo
 %
-% In this file we demonstrate the use of the |rrlsq| MATLAB(R) routine
+% In this file we demonstrate the use of the |sr3| MATLAB(R) routine
 % on a few examples in regularized least squares fitting.
 %
-% The RRLSQ framework is an approach to problems of the form 
+% The SR3 framework is an approach to problems of the form 
 %
 % $$ \min_x \frac{1}{2} \|Ax-b\|_{\ell_2}^2 + \lambda \rho(D x) $$ 
 %
@@ -38,7 +38,7 @@ set(groot, 'defaultLineLineWidth',2)
 
 %% Problem 1: $\ell_1$ vs $\ell_0$ penalties
 %
-% In this problem we test the performance of using RRLSQ to 
+% In this problem we test the performance of using SR3 to 
 % recover a sparse signal. Here $\rho$ is either the $\ell_1$ 
 % or $\ell_0$ penalty. We also plot the results of a least squares
 % fit and the built in |lasso| function (if available). This is a 
@@ -64,8 +64,8 @@ lam1 = 0.01; % good for l_1 regularizer
 lam0 = 0.004; % good for l_0 regularizer
 
 % apply solver
-[x0, w0] = rrlsq(A, b, 'mode', '0', 'lam',lam0,'ptf',0);
-[x1, w1] = rrlsq(A, b, 'lam',lam1,'ptf',0);
+[x0, w0] = sr3(A, b, 'mode', '0', 'lam',lam0,'ptf',0);
+[x1, w1] = sr3(A, b, 'lam',lam1,'ptf',0);
 
 % built-ins
 xl2 = A\b;
@@ -127,9 +127,9 @@ lam1 = 0.02;
 lam1_2 = 0.002;
 
 % apply solver
-[x0, w0] = rrlsq(A, b, 'mode', '0', 'lam',lam0,'ptf',0,'D',D);
-[x1, w1] = rrlsq(A, b, 'mode', '1', 'lam',lam1,'ptf',0,'D',D);
-[x1_2, w1_2] = rrlsq(A, b, 'mode', '1', 'lam',lam1_2,'ptf',0,'D',D);
+[x0, w0] = sr3(A, b, 'mode', '0', 'lam',lam0,'ptf',0,'D',D);
+[x1, w1] = sr3(A, b, 'mode', '1', 'lam',lam1,'ptf',0,'D',D);
+[x1_2, w1_2] = sr3(A, b, 'mode', '1', 'lam',lam1_2,'ptf',0,'D',D);
 
 cs = cumsum([0;w0]);
 y0 = cs + (sum(x0)-sum(cs))/n;
@@ -179,9 +179,9 @@ kappa0 = 1.0*h;
 kappa1 = 1.0*h;
 
 % apply solver
-[x0, w0] = rrlsq(A, b, 'mode', '0', 'lam',lam0,'itm',10000,'ptf',0,...
+[x0, w0] = sr3(A, b, 'mode', '0', 'lam',lam0,'itm',10000,'ptf',0,...
     'D',D,'x0',xi,'w0',wi,'kap',kappa0);
-[x1, w1] = rrlsq(A, b, 'mode', '1', 'lam',lam1,'itm',10000,'ptf',0,...
+[x1, w1] = sr3(A, b, 'mode', '1', 'lam',lam1,'itm',10000,'ptf',0,...
     'D',D,'x0',xi,'w0',wi,'kap',kappa1);
 
 

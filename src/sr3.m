@@ -1,5 +1,5 @@
-function [x, w] = rrlsq(A,b,varargin)
-%RRLSQ Relaxed pursuit method for regularized least squares problems
+function [x, w] = sr3(A,b,varargin)
+%SR3 Relaxed pursuit method for regularized least squares problems
 % of the form:
 %   0.5*norm(A*x-b,2)^2 + lam*rho(w) + 0.5*kap*norm(D*x-w,2)^2
 % over x and w. The output w represents a regularized solution of 
@@ -38,7 +38,7 @@ function [x, w] = rrlsq(A,b,varargin)
 %   'l0w'       weight of l0 norm for 'mixed' mode (default 0.0)
 %   'l1w'       weight of l1 norm for 'mixed' mode (default 1.0)
 %   'l2w'       weight of l2 norm for 'mixed' mode (default 0.0)
-%   'rho'       function evaluating regularizer rho (default
+%   'rho'       function evaluating regularizer rho
 %   'rhoprox'   proximal function which, for any alpha, evaluates 
 %               rhoprox(x,alpha) = argmin_y alpha*rho(y)+0.5*norm(x-y,2)^2
 %
@@ -51,9 +51,9 @@ function [x, w] = rrlsq(A,b,varargin)
 %   >> A = randn(m,n);
 %   >> y = zeros(n,1); y(randperm(n,k)) = sign(randn(k,1));
 %   >> lam = A.'*b;
-%   >> [x,w] = rrlsq(A,b,'lam',lam);
+%   >> [x,w] = sr3(A,b,'lam',lam);
 %
-% See also RRLSQ_PARAMS, LASSO, LINSOLVE
+% See also LASSO, LINSOLVE
 
 % Copyright 2018 Travis Askham and Peng Zheng
 % Available under the terms of the MIT License
@@ -62,7 +62,7 @@ function [x, w] = rrlsq(A,b,varargin)
 
 [m,n] = size(A);
 
-[p,rho,rhoprox] = rrlsq_parse_input(A,b,m,n,varargin{:});
+[p,rho,rhoprox] = sr3_parse_input(A,b,m,n,varargin{:});
 
 x = p.Results.x0;
 w = p.Results.w0;
@@ -73,6 +73,7 @@ itm = p.Results.itm;
 tol = p.Results.tol;
 ptf = p.Results.ptf;
 ifusenormal = p.Results.ifusenormal;
+ifuselsqr = p.Results.ifuselsqr;
 
 [md,~] = size(D);
 if md ~= n
@@ -95,6 +96,10 @@ if ifusenormal
        error('error using normal equations');
    end
    atb = A.'*b;
+elseif ifuselsqr
+    sys = [A;rootkap*D];
+    u = [b;rootkap*w];
+    x = lsqr(sys,u,tol/2,100,[],[],x);    
 else
     [Q,R,p] = qr([full(A);rootkap*full(D)],0);
     opts.UT = true;
@@ -113,6 +118,9 @@ while err >= tol
     if ifusenormal
         u = atb + kap*(D.'*w);
         x(s) = atacholfac\(atacholfac.'\u(s));
+    elseif ifuselsqr
+        u = [b;rootkap*w];
+        x = lsqr(sys,u,tol/2,10,[],[],x);
     else
         u = Q'*[b;rootkap*w]; % apply q* from qr 
         x(p) = linsolve(R,u,opts); % solve rx = u
@@ -141,13 +149,13 @@ end
 
 end
 
-function [p,rho,rhoprox] = rrlsq_parse_input(A,b,m,n,varargin)
-%RRLSQ_PARSE_INPUT parse the input to RRLSQ
+function [p,rho,rhoprox] = sr3_parse_input(A,b,m,n,varargin)
+%SR3_PARSE_INPUT parse the input to SR3
 % Sets default values and checks types (within reason)
-% See also RRLSQ for details
+% See also sr3 for details
 
     l1rho = @(x) sum(abs(x));
-    l1rhoprox = @(x,alpha) wthresh(x,'s',alpha);
+    l1rhoprox = @(x,alpha) sign(x).*(abs(x)-alpha).*(abs(x)>alpha);
 
     defaultx0 = zeros(n,1);
     defaultw0 = zeros(n,1);
@@ -164,6 +172,7 @@ function [p,rho,rhoprox] = rrlsq_parse_input(A,b,m,n,varargin)
     defaultrho = l1rho;
     defaultrhoprox = l1rhoprox;
     defaultifusenormal = 0;
+    defaultifuselsqr = 0;    
     
     p = inputParser;
     isdouble = @(x) isa(x,'double');
@@ -192,16 +201,25 @@ function [p,rho,rhoprox] = rrlsq_parse_input(A,b,m,n,varargin)
     addParameter(p,'rho',defaultrho,isfunhandle);
     addParameter(p,'rhoprox',defaultrhoprox,isfunhandle);
     addParameter(p,'ifusenormal',defaultifusenormal,@isnumeric);
+    addParameter(p,'ifuselsqr',defaultifuselsqr,@isnumeric);
 
     parse(p,A,b,varargin{:});
     
+    % override if mode '0' '1' or '2' selected
+    if strcmp(p.Results.mode,'0')
+        l0w = 1; l1w = 0; l2w = 0;
+    elseif strcmp(p.Results.mode,'1')
+        l0w = 0; l1w = 1; l2w = 0;
+    elseif strcmp(p.Results.mode,'2')
+        l0w = 0; l1w = 0; l2w = 1;
+    else
+        l0w = p.Results.l0w; l1w = p.Results.l1w; l2w = p.Results.l2w;
+    end
 
     if strcmp(p.Results.mode,'0') || strcmp(p.Results.mode,'1') ...
-            || strcmp(p.Results.mode,'2')
-        rho = @(x) l012rhoprox(x,1,p.Results.mode,0);
-        rhoprox = @(x,alpha) l012rhoprox(x,alpha,p.Results.mode,1);
-    elseif strcmp(mode,'mixed')
-        % not implemented
+            || strcmp(p.Results.mode,'2') || strcmp(mode,'mixed')
+        rho = @(x) l012rhoprox(x,1,l0w,l1w,l2w,0);
+        rhoprox = @(x,alpha) l012rhoprox(x,alpha,l0w,l1w,l2w,1);
     elseif strcmp(mode,'other')
         rho = p.Results.rho;
         rhoprox = p.Results.rhoprox;
