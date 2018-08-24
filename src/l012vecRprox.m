@@ -1,5 +1,5 @@
 function z = l012vecRprox(x,alpha,l0w,l1w,l2w,ifprox,ndim)
-%%L012VECRHOPROX utility function for the l0, l1, and l2 penalties
+%%L012VECRPROX utility function for the l0, l1, and l2 penalties
 % on vectors.
 %
 % x is assumed to be have entries which are in turn coordinates of 
@@ -10,6 +10,7 @@ function z = l012vecRprox(x,alpha,l0w,l1w,l2w,ifprox,ndim)
 % prox-ing is then applied to the euclidian norm of these points
 % in ndim-dimensional space and the points are rescaled.
 %
+% See also L012RPROX
 
 n2 = length(x)/ndim;
 x2 = reshape(x,n2,ndim);
