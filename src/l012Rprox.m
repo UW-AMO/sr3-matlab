@@ -1,5 +1,5 @@
 
-function z = l012rhoprox(x,alpha,l0w,l1w,l2w,ifprox)
+function z = l012Rprox(x,alpha,l0w,l1w,l2w,ifprox)
 %%L012RHOPROX utility function for the l0, l1, and l2 penalties
 % this function returns either the value of the penalty or 
 % the solution of the prox problem (if ifprox):

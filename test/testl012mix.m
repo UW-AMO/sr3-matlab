@@ -1,5 +1,5 @@
 
-%% test 1: correctness of l012rhoprox function
+%% test 1: correctness of l012Rprox function
 
 ntest = 100;
 nx = 101;
@@ -27,7 +27,7 @@ for i = 1:ntest
         fs = fl012mix(ws,x,alpha0,alpha1,alpha2);
         [fmin,imin] = min(fs);
         wmin = ws(imin);
-        wprox = l012rhoprox(x,alpha,l0w,l1w,l2w,ifprox);
+        wprox = l012Rprox(x,alpha,l0w,l1w,l2w,ifprox);
         fwprox = fl012mix(wprox,x,alpha0,alpha1,alpha2); 
         
         % compare prox with brute force min

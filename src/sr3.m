@@ -1,7 +1,7 @@
 function [x, w] = sr3(A,b,varargin)
 %SR3 Relaxed pursuit method for regularized least squares problems
 % of the form:
-%   0.5*norm(A*x-b,2)^2 + lam*rho(w) + 0.5*kap*norm(D*x-w,2)^2
+%   0.5*norm(A*x-b,2)^2 + lam*R(w) + 0.5*kap*norm(C*x-w,2)^2
 % over x and w. The output w represents a regularized solution of 
 % the least squares problem described by A and b. 
 %
@@ -15,9 +15,9 @@ function [x, w] = sr3(A,b,varargin)
 %   'x0'        initial guess, decision variable (default zeros(N,1))
 %   'w0'        initial guess, regularized decision variable (default
 %               zeros(N,1))
-%   'D'         regularization pre-multiplication matrix as in formula
+%   'C'         regularization pre-multiplication matrix as in formula
 %               (default eye(N))
-%   'lam'       hyper-parameter, control strength of rho (default 1.0)
+%   'lam'       hyper-parameter, control strength of R (default 1.0)
 %   'kap'       hyper-parameter, control strength of the quadratic penalty
 %               (default 1.0)
 %   'ifusenormal' use the normal equations and Cholesky factorization
@@ -28,19 +28,19 @@ function [x, w] = sr3(A,b,varargin)
 %   'tol'       terminate if change in w (in l2 norm) is less than tol
 %               (default 1e-6)
 %   'ptf'       print every ptf iterations (don't print if 0). (default 0)
-%   'mode'      '2': rho = 0.5*squared 2 norm, i.e. 0.5*sum(abs(x).^2)
-%               '1': rho = 1 norm, i.e. sum(abs(x))
-%               '0': rho = 0 norm, i.e. nnz(x)
-%               'mixed': rho = sum of 0, 1, and squared 2 norms with 
+%   'mode'      '2': R = 0.5*squared 2 norm, i.e. 0.5*sum(abs(x).^2)
+%               '1': R = 1 norm, i.e. sum(abs(x))
+%               '0': R = 0 norm, i.e. nnz(x)
+%               'mixed': R = sum of 0, 1, and squared 2 norms with 
 %                weights l0w, l1w, and l2w
-%               'other': rho and rhoprox must be provided
+%               'other': R and Rprox must be provided
 %               (default '1')
 %   'l0w'       weight of l0 norm for 'mixed' mode (default 0.0)
 %   'l1w'       weight of l1 norm for 'mixed' mode (default 0.0)
 %   'l2w'       weight of l2 norm for 'mixed' mode (default 0.0)
-%   'rho'       function evaluating regularizer rho
-%   'rhoprox'   proximal function which, for any alpha, evaluates 
-%               rhoprox(x,alpha) = argmin_y alpha*rho(y)+0.5*norm(x-y,2)^2
+%   'R'       function evaluating regularizer R
+%   'Rprox'   proximal function which, for any alpha, evaluates 
+%               Rprox(x,alpha) = argmin_y alpha*R(y)+0.5*norm(x-y,2)^2
 %
 % output:
 %   x, w the computed minimizers of the objective
@@ -62,11 +62,11 @@ function [x, w] = sr3(A,b,varargin)
 
 [m,n] = size(A);
 
-[p,rho,rhoprox] = sr3_parse_input(A,b,m,n,varargin{:});
+[p,R,Rprox] = sr3_parse_input(A,b,m,n,varargin{:});
 
 x = p.Results.x0;
 w = p.Results.w0;
-D = p.Results.D;
+C = p.Results.C;
 lam = p.Results.lam;
 kap = p.Results.kap;
 itm = p.Results.itm;
@@ -75,7 +75,7 @@ ptf = p.Results.ptf;
 ifusenormal = p.Results.ifusenormal;
 ifuselsqr = p.Results.ifuselsqr;
 
-[md,~] = size(D);
+[md,~] = size(C);
 if md ~= n
     w = zeros(md,1);
 end
@@ -85,7 +85,7 @@ end
 rootkap = sqrt(kap);
 alpha = lam/kap;
 if ifusenormal
-   atareg = (A.'*A) + kap*(D.'*D);
+   atareg = (A.'*A) + kap*(C.'*C);
    if issparse(atareg)
     [atacholfac,p,s] = chol(atareg,'upper','vector');
    else
@@ -97,11 +97,11 @@ if ifusenormal
    end
    atb = A.'*b;
 elseif ifuselsqr
-    sys = [A;rootkap*D];
+    sys = [A;rootkap*C];
     u = [b;rootkap*w];
     x = lsqr(sys,u,tol/2,100,[],[],x);    
 else
-    [Q,R,p] = qr([full(A);rootkap*full(D)],0);
+    [Q,R,p] = qr([full(A);rootkap*full(C)],0);
     opts.UT = true;
 end
 
@@ -116,7 +116,7 @@ normb = norm(b,2);
 while err >= tol
     % xstep
     if ifusenormal
-        u = atb + kap*(D.'*w);
+        u = atb + kap*(C.'*w);
         x(s) = atacholfac\(atacholfac.'\u(s));
     elseif ifuselsqr
         u = [b;rootkap*w];
@@ -126,14 +126,14 @@ while err >= tol
         x(p) = linsolve(R,u,opts); % solve rx = u
     end
     
-    % store D*x
-    y = D*x; 
+    % store C*x
+    y = C*x; 
     
     % wstep
-    w = rhoprox(y,alpha);
+    w = Rprox(y,alpha);
     
     % update convergence information
-    obj = 0.5*sum((A*x-b).^2) + lam*rho(w) + 0.5*kap*sum((y-w).^2);
+    obj = 0.5*sum((A*x-b).^2) + lam*R(w) + 0.5*kap*sum((y-w).^2);
     err = sqrt(sum((w - wm).^2))/normb;
     wm  = w;
     
@@ -149,17 +149,17 @@ end
 
 end
 
-function [p,rho,rhoprox] = sr3_parse_input(A,b,m,n,varargin)
+function [p,R,Rprox] = sr3_parse_input(A,b,m,n,varargin)
 %SR3_PARSE_INPUT parse the input to SR3
 % Sets default values and checks types (within reason)
 % See also sr3 for details
 
-    l1rho = @(x) sum(abs(x));
-    l1rhoprox = @(x,alpha) sign(x).*(abs(x)-alpha).*(abs(x)>alpha);
+    l1R = @(x) sum(abs(x));
+    l1Rprox = @(x,alpha) sign(x).*(abs(x)-alpha).*(abs(x)>alpha);
 
     defaultx0 = zeros(n,1);
     defaultw0 = zeros(n,1);
-    defaultD = speye(n);
+    defaultC = speye(n);
     defaultlam = 1.0;
     defaultkap = 1.0;
     defaultitm = 100;
@@ -169,8 +169,8 @@ function [p,rho,rhoprox] = sr3_parse_input(A,b,m,n,varargin)
     defaultl0w = 0.0;
     defaultl1w = 0.0;
     defaultl2w = 0.0;
-    defaultrho = l1rho;
-    defaultrhoprox = l1rhoprox;
+    defaultR = l1R;
+    defaultRprox = l1Rprox;
     defaultifusenormal = 0;
     defaultifuselsqr = 0;    
     
@@ -188,7 +188,7 @@ function [p,rho,rhoprox] = sr3_parse_input(A,b,m,n,varargin)
     addRequired(p,'b',isdoublem);
     addParameter(p,'x0',defaultx0,isdoublen);
     addParameter(p,'w0',defaultw0,isdouble);
-    addParameter(p,'D',defaultD,isdouble);
+    addParameter(p,'C',defaultC,isdouble);
     addParameter(p,'lam',defaultlam,isdoublep);
     addParameter(p,'kap',defaultkap,isdoublep);
     addParameter(p,'itm',defaultitm,isnumericp);
@@ -198,8 +198,8 @@ function [p,rho,rhoprox] = sr3_parse_input(A,b,m,n,varargin)
     addParameter(p,'l0w',defaultl0w,isdoublepp);
     addParameter(p,'l1w',defaultl1w,isdoublepp);
     addParameter(p,'l2w',defaultl2w,isdoublepp);
-    addParameter(p,'rho',defaultrho,isfunhandle);
-    addParameter(p,'rhoprox',defaultrhoprox,isfunhandle);
+    addParameter(p,'R',defaultR,isfunhandle);
+    addParameter(p,'Rprox',defaultRprox,isfunhandle);
     addParameter(p,'ifusenormal',defaultifusenormal,@isnumeric);
     addParameter(p,'ifuselsqr',defaultifuselsqr,@isnumeric);
 
@@ -222,11 +222,11 @@ function [p,rho,rhoprox] = sr3_parse_input(A,b,m,n,varargin)
             warning(['all weights in mixed norm are zero', ...
                 '\n prox operation does nothing'])
         end
-        rho = @(x) l012rhoprox(x,1,l0w,l1w,l2w,0);
-        rhoprox = @(x,alpha) l012rhoprox(x,alpha,l0w,l1w,l2w,1);
+        R = @(x) l012Rprox(x,1,l0w,l1w,l2w,0);
+        Rprox = @(x,alpha) l012Rprox(x,alpha,l0w,l1w,l2w,1);
     elseif strcmp(mode,'other')
-        rho = p.Results.rho;
-        rhoprox = p.Results.rhoprox;
+        R = p.Results.R;
+        Rprox = p.Results.Rprox;
     else
         error('incorrect value for mode')
     end

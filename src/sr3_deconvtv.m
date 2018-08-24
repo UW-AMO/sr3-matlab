@@ -1,6 +1,6 @@
 function [x,w,stats] = sr3_deconvtv(cmat,img,varargin)
-%SR3-style relaxed pursuit method for total variation regularized
-% deconvolution
+%SR3_DECONVTV SR3-style relaxed pursuit method for total variation 
+% regularized deconvolution
 % 
 % Required input (positional):
 %
@@ -11,7 +11,7 @@ function [x,w,stats] = sr3_deconvtv(cmat,img,varargin)
 %
 % Parameter input:
 %
-%   'lam'       hyper-parameter, control strength of rho (default 1.0)
+%   'lam'       hyper-parameter, control strength of R (default 1.0)
 %   'kap'       hyper-parameter, control strength of the quadratic penalty
 %               (default 1.0)
 %   'itm'       maximum number of iterations (default 100)
@@ -19,19 +19,17 @@ function [x,w,stats] = sr3_deconvtv(cmat,img,varargin)
 %               (default 1e-6)
 %   'ptf'       print every ptf iterations (don't print if 0). (default 0)
 %   'modefit'   '2': (default '2')
-%   'modereg'   '2': rho = 0.5*squared 2 norm, i.e. 0.5*sum(abs(x).^2)
-%               '1': rho = 1 norm, i.e. sum(abs(x))
-%               '0': rho = 0 norm, i.e. nnz(x)
-%               'mixed': rho = sum of 0, 1, and squared 2 norms with 
+%   'modereg'   '2': R = 0.5*squared 2 norm, i.e. 0.5*sum(abs(x).^2)
+%               '1': R = 1 norm, i.e. sum(abs(x))
+%               '0': R = 0 norm, i.e. nnz(x)
+%               'mixed': R = sum of 0, 1, and squared 2 norms with 
 %                weights l0w, l1w, and l2w
-%               'other': rho and rhoprox must be provided
+%               'other': R and Rprox must be provided
 %               (default '1')
 %   'ifobjhis'  flag, if nonzero, store the history of the values of the 
 %               objective in stats.objhis; otherwise, these aren't stored
-%   'ifnokap'   flag, if nonzero, then compute the objective as if 
-%               kap = 0 (for comparison with other optimization routines);
-%               otherwise, compute the objective with the kap term
-%               (default 1)
+%   'ifstdtvobj'flag, if nonzero, then compute the objective as if 
+%               the standard tv regularized problem were being optimized
 %
 % output:
 %   x, w the computed minimizers of the objective
@@ -58,7 +56,7 @@ function [x,w,stats] = sr3_deconvtv(cmat,img,varargin)
 [m,n] = size(img);
 [m1,n1] = size(cmat);
 
-[p,rho,rhoprox] = sr3_deconvtv_parse_input(varargin{:});
+[p,R,Rprox] = sr3_deconvtv_parse_input(img,varargin{:});
 
 lam = p.Results.lam;
 kap = p.Results.kap;
@@ -67,7 +65,10 @@ tol = p.Results.tol;
 ptf = p.Results.ptf;
 modefit = p.Results.modefit;
 modereg = p.Results.modereg;
-ifnokap = 1;
+ifstdtvobj = p.Results.ifstdtvobj;
+x = p.Results.xinit;
+w = p.Results.winit;
+accelerate = p.Results.accelerate;
 
 %% pre-process operators
 
@@ -91,11 +92,10 @@ atb = ifftn(conj(cmathat).*fftn(img));
 % system matrix (in frequency space) for least squares solve
 atadtdhat = abs(cmathat).^2 + kap*(abs(dfxhat).^2 + abs(dfyhat).^2);
 
-x = img;
-w = zeros(2*m*n,1);
 xm = x;
-wtop = reshape(w(1:m*n),m,n);
-wbot = reshape(w(m*n+1:end),m,n);
+wm = w;
+vtop = reshape(w(1:m*n),m,n);
+vbot = reshape(w(m*n+1:end),m,n);
 
 noi = 0;
 
@@ -105,36 +105,67 @@ objs = zeros(itm,1);
 
 y = zeros(2*m*n,1);
 
+wm  = w;
+vm  = w;
+am  = 1.0;
+
 while err >= tol
     % solve least squares problem for x
-    temp1 = atb + kap*ifftn(conj(dfxhat).*fftn(wtop) ...
-        + conj(dfyhat).*fftn(wbot)); 
+    temp1 = atb + kap*ifftn(conj(dfxhat).*fftn(vtop) ...
+        + conj(dfyhat).*fftn(vbot)); 
     xhat = fftn(temp1)./atadtdhat;
     x = ifftn(xhat);
-    % compute w as prox of D*x
+    %grad = ifftn(conj(cmathat).*(cmathat.*xhat-fftn(img))) ...
+    %        + kap*(ifftn(abs(dfxhat).^2.*xhat+abs(dfyhat).^2.*xhat)- ...
+    %        ifftn(conj(dfxhat).*fftn(wtop) + conj(dfyhat).*fftn(wbot)));
+    %fprintf('|g| %e\n',norm(grad,'fro'))
+            
+    % compute w as prox of C*x
     temp1 = ifftn( dfxhat.*xhat );
     y(1:m*n) = temp1(:);
     temp1 = ifftn( dfyhat.*xhat );
     y(m*n+1:end) = temp1(:);
-    w = rhoprox(y,alpha);
-    wtop = reshape(w(1:m*n),m,n);
-    wbot = reshape(w(m*n+1:end),m,n);
+    w = Rprox(y,alpha);
+%     wtop = reshape(w(1:m*n),m,n);
+%     wbot = reshape(w(m*n+1:end),m,n);
+    
+    % acceleration step
+    if accelerate
+        a = 0.5*(1 + sqrt(1+4*am^2));
+        v = w + (am - 1)/a*(w - wm);
+        am = a;
+    else
+        v = w;
+    end
+    
+    vtop = reshape(v(1:m*n),m,n);
+    vbot = reshape(v(m*n+1:end),m,n);
+    
+    
+    
     % print and store convergence information
     noi = noi + 1;
-    err = norm(x-xm,'fro')/norm(xm,'fro');
+    %err = norm(x-xm,'fro')/norm(xm,'fro');
+    err = norm(w-wm,'fro')/norm(wm,'fro');
     errs(noi) = err;
-    obj = 0.5*norm(ifftn(cmathat.*xhat)-img,'fro')^2 ...
-        + lam*rho(w);
-    if ~ifnokap
-        obj = obj + 0.5*kap*sum(abs(y-w).^2);
+    if ifstdtvobj
+        obj = 0.5*norm(ifftn(cmathat.*xhat)-img,'fro')^2 ...
+            + lam*R(y);
+    else
+        obj = 0.5*norm(ifftn(cmathat.*xhat)-img,'fro')^2 ...
+            + lam*R(w) + 0.5*kap*sum(abs(y-w).^2);
     end
     
     xm = x;
-
+    wm = w;
+    vm = v;
+    
+    
     objs(noi) = obj;
     if mod(noi, ptf) == 0
         fprintf('iter %4d, obj %1.2e, err %1.2e\n', noi, obj, err);
     end
+    
     if noi >= itm
         break;
     end
@@ -147,10 +178,12 @@ stats.objs = objs(1:noi);
 
 end
 
-function [p,rho,rhoprox] = sr3_deconvtv_parse_input(varargin)
+function [p,R,Rprox] = sr3_deconvtv_parse_input(img,varargin)
 %SR3_DECONVTV_PARSE_INPUT parse the input to SR3_DECONVTV
 % Sets default values and checks types (within reason)
 % See also SR3_DECONVTV for details
+
+    [m,n] = size(img);
 
     defaultlam = 1.0;
     defaultkap = 1.0;
@@ -159,10 +192,13 @@ function [p,rho,rhoprox] = sr3_deconvtv_parse_input(varargin)
     defaultptf = 0;
     defaultmodefit = '2';
     defaultmodereg = '1';
-    defaultifnokap = 1;
+    defaultifstdtvobj = 1;
+    defaultaccelerate = false;
     defaultl0w = 0.0;
     defaultl1w = 0.0;
     defaultl2w = 0.0;
+    defaultxinit = img;
+    defaultwinit = zeros(2*m*n,1);
     
     p = inputParser;
     isdouble = @(x) isa(x,'double');
@@ -178,10 +214,13 @@ function [p,rho,rhoprox] = sr3_deconvtv_parse_input(varargin)
     addParameter(p,'ptf',defaultptf,isnumericpp);
     addParameter(p,'modefit',defaultmodefit,@ischar);
     addParameter(p,'modereg',defaultmodereg,@ischar);
-    addParameter(p,'ifnokap',defaultifnokap,@isnumeric);
+    addParameter(p,'ifstdtvobj',defaultifstdtvobj,@isnumeric);
+    addParameter(p,'accelerate',defaultaccelerate,@islogical);
     addParameter(p,'l0w',defaultl0w,isdoublepp);
     addParameter(p,'l1w',defaultl1w,isdoublepp);
     addParameter(p,'l2w',defaultl2w,isdoublepp);
+    addParameter(p,'xinit',defaultxinit,isdouble);
+    addParameter(p,'winit',defaultwinit,isdouble);    
     
     parse(p,varargin{:});
     
@@ -203,8 +242,8 @@ function [p,rho,rhoprox] = sr3_deconvtv_parse_input(varargin)
             warning(['all weights in mixed norm are zero', ...
                 '\n prox operation does nothing'])
         end
-        rho = @(x) l012vecrhoprox(x,1,l0w,l1w,l2w,0,2);
-        rhoprox = @(x,alpha) l012vecrhoprox(x,alpha,l0w,l1w,l2w,1,2);
+        R = @(x) l012vecRprox(x,1,l0w,l1w,l2w,0,2);
+        Rprox = @(x,alpha) l012vecRprox(x,alpha,l0w,l1w,l2w,1,2);
     else
         error('incorrect value for mode')
     end

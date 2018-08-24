@@ -1,5 +1,5 @@
 
 %% Running all tests
 
-result = runtests(pwd,'IncludeSubfolders',true);
+result = runtests([pwd,'/test']);
 table(result)
