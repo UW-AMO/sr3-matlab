@@ -62,7 +62,7 @@ function [x, w] = sr3(A,b,varargin)
 
 [m,n] = size(A);
 
-[p,R,Rprox] = sr3_parse_input(A,b,m,n,varargin{:});
+[p,Rfunc,Rprox] = sr3_parse_input(A,b,m,n,varargin{:});
 
 x = p.Results.x0;
 w = p.Results.w0;
@@ -133,7 +133,7 @@ while err >= tol
     w = Rprox(y,alpha);
     
     % update convergence information
-    obj = 0.5*sum((A*x-b).^2) + lam*R(w) + 0.5*kap*sum((y-w).^2);
+    obj = 0.5*sum((A*x-b).^2) + lam*Rfunc(w) + 0.5*kap*sum((y-w).^2);
     err = sqrt(sum((w - wm).^2))/normb;
     wm  = w;
     
