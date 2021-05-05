@@ -217,14 +217,14 @@ function [p,R,Rprox] = sr3_parse_input(A,b,m,n,varargin)
     end
 
     if strcmp(p.Results.mode,'0') || strcmp(p.Results.mode,'1') ...
-            || strcmp(p.Results.mode,'2') || strcmp(mode,'mixed')
+            || strcmp(p.Results.mode,'2') || strcmp(p.Results.mode,'mixed')
         if (abs(l0w) == 0 && abs(l1w) == 0 && abs(l2w) == 0)
             warning(['all weights in mixed norm are zero', ...
                 '\n prox operation does nothing'])
         end
         R = @(x) l012Rprox(x,1,l0w,l1w,l2w,0);
         Rprox = @(x,alpha) l012Rprox(x,alpha,l0w,l1w,l2w,1);
-    elseif strcmp(mode,'other')
+    elseif strcmp(p.Results.mode,'other')
         R = p.Results.R;
         Rprox = p.Results.Rprox;
     else
